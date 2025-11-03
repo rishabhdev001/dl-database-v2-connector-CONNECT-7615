@@ -28,7 +28,6 @@ import org.postgresql.util.PGobject;
 
 import com.boomi.connector.databaseconnector.DatabaseConnectorConnection;
 import com.boomi.connector.databaseconnector.util.CustomPayloadUtil;
-import com.boomi.connector.databaseconnector.util.CustomResponseUtil;
 import com.boomi.connector.databaseconnector.util.DatabaseConnectorConstants;
 import com.boomi.connector.databaseconnector.util.MetadataUtil;
 import com.boomi.connector.util.SizeLimitedUpdateOperation;
@@ -99,7 +98,6 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 	 */
 	private void executeStatements(Connection con, UpdateRequest trackedData, OperationResponse response, Long maxRows,
 								   String linkElement, Long maxFieldSize) throws SQLException {
-		boolean inClause = getContext().getOperationProperties().getBooleanProperty("INClause", false);
 		Map<String, String> dataTypes = MetadataUtil.getDataTypes(con, getContext().getObjectTypeId());
 		logger.info("inside executeStatements method");
 		for (ObjectData objdata : trackedData) {
@@ -108,19 +106,7 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 			//String query = "select * from test LIMIT 82";
 			logger.info("Query being executed from executeStatements is: "+ query);
 			try {
-				//StringBuilder query = this.buildQuery(objdata, dataTypes, con);
-				//String query = getContext().getOperationProperties().getProperty(DatabaseConnectorConstants.QUERY, "Select * from Regions");
-				//if (linkElement != null && !linkElement.equalsIgnoreCase("")) {
-				//	this.addLinkElement(query, linkElement);
-				//}
 				st = con.prepareStatement(query);
-				//if (inClause && inCheck(query)) {
-				//	this.inClausePreparedStatement(objdata, dataTypes, st, con);
-				//} else if ((!inClause && inCheck(query)) || (inClause && !inCheck(query))) {
-			//		throw new ConnectorException("Kindly select the IN clause check box !");
-			//	} else {
-			//		this.prepareStatement(objdata, dataTypes, st, con);
-			//	}
 				this.prepareStatement(objdata, dataTypes, st, con);
 				if (maxRows != null && maxRows > 0) {
 					st.setMaxRows(maxRows.intValue());
@@ -129,12 +115,9 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 					st.setMaxFieldSize(maxFieldSize.intValue());
 				}
 				this.processResultSet(st, objdata, response);
-			} catch (SQLException e) {
-				logger.severe("SQL exception coming from executeStatements "+ e.getMessage() );
-				CustomResponseUtil.writeSqlErrorResponse(e, objdata, response);
 			} catch (Exception e) {
 				logger.severe("Exception coming in executeStatements method"+ e.getMessage() );
-				CustomResponseUtil.writeErrorResponse(e, objdata, response);
+				ResponseUtil.addExceptionFailure(response, objdata, e);
 			} finally {
 				if (st != null) {
 					st.close();
@@ -142,179 +125,6 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 			}
 		}
 		logger.info("Statements proccessed Successfully!!");
-	}
-
-	/**
-	 * Returns true if entered Query has IN CLAUSE.
-	 *
-	 * @param query the query
-	 * @return the in check
-	 */
-	private boolean inCheck(StringBuilder query) {
-		return query.toString().contains(IN_WITHSPACE) || query.toString().contains(IN_WITHOUTSPACE);
-	}
-
-	/**
-	 * In clause prepared statement.
-	 *
-	 * @param objdata   the objdata
-	 * @param dataTypes the data types
-	 * @param bstmnt    the bstmnt
-	 * @param con       the con
-	 * @throws IOException  Signals that an I/O exception has occurred.
-	 * @throws SQLException the SQL exception
-	 */
-	private void inClausePreparedStatement(ObjectData objdata, Map<String, String> dataTypes, PreparedStatement bstmnt,
-			Connection con) throws IOException, SQLException {
-		ObjectMapper mapper = new ObjectMapper().disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
-				.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-		try (InputStream is = objdata.getData()) {
-			JsonNode json = mapper.readTree(is);
-			if (json != null) {
-				DatabaseMetaData md = con.getMetaData();
-				String databaseName = md.getDatabaseProductName();
-				try (ResultSet resultSet = md.getColumns(null, null, getContext().getObjectTypeId(), null);) {
-					int i = 0;
-					int j = 0;
-					int keyCount = 0;
-					while (resultSet.next()) {
-						String key = resultSet.getString(DatabaseConnectorConstants.COLUMN_NAME);
-						if (json.get(key) != null) {
-							keyCount++;
-							ArrayNode arrayNode = json.get(key) instanceof ArrayNode ? (ArrayNode) json.get(key)
-									: new ArrayNode(JsonNodeFactory.instance).add(json.get(key));
-							Iterator<JsonNode> slaidsIterator = arrayNode.elements();
-							while (slaidsIterator.hasNext() || j < arrayNode.size()) {
-								i++;
-								JsonNode fieldValue = slaidsIterator.next();
-								checkInClauseDataType(dataTypes, bstmnt, databaseName, i, key, arrayNode, fieldValue);
-								j++;
-							}
-						}
-					}
-					if (keyCount != json.size()) {
-						throw new ConnectorException("Kindly check the input provided!!!");
-					}
-				}
-			}
-		}
-
-	}
-
-	/**
-	 * 
-	 * This method will check the data type for each key in the Json Request and
-	 * sets the value to the prepared statement accordingly
-	 * 
-	 * @param dataTypes
-	 * @param bstmnt
-	 * @param databaseName
-	 * @param i
-	 * @param key
-	 * @param arrayNode
-	 * @param fieldValue
-	 * @throws SQLException
-	 */
-	private void checkInClauseDataType(Map<String, String> dataTypes, PreparedStatement bstmnt, String databaseName,
-			int i, String key, ArrayNode arrayNode, JsonNode fieldValue) throws SQLException {
-		switch (dataTypes.get(key)) {
-		case INTEGER:
-			if (!fieldValue.isNull()) {
-				int num = Integer.parseInt(fieldValue.toString().replace(BACKSLASH, ""));
-				bstmnt.setInt(i, num);
-			} else {
-				bstmnt.setNull(i, Types.INTEGER);
-			}
-			break;
-		case DATE:
-			if (!fieldValue.isNull()) {
-				if (databaseName.equals(ORACLE) || databaseName.equals(MYSQL)) {
-					bstmnt.setString(i, fieldValue.toString().replace(BACKSLASH, ""));
-				} else {
-					bstmnt.setDate(i, Date.valueOf(fieldValue.toString().replace(BACKSLASH, "")));
-				}
-			} else {
-				bstmnt.setNull(i, Types.DATE);
-			}
-			break;
-		case JSON:
-			if (!fieldValue.isNull()) {
-				extractInClauseJson(bstmnt, databaseName, i, arrayNode, fieldValue);
-			} else {
-				bstmnt.setNull(i, Types.NULL);
-			}
-			break;
-		case NVARCHAR:
-			if (!fieldValue.isNull()) {
-				bstmnt.setString(i, StringEscapeUtils.unescapeJava(fieldValue.toString().replace(BACKSLASH, "")));
-			} else {
-				bstmnt.setNull(i, Types.NVARCHAR);
-			}
-			break;
-		case STRING:
-			if (!fieldValue.isNull()) {
-				bstmnt.setString(i, fieldValue.toString().replace(BACKSLASH, ""));
-			} else {
-				bstmnt.setNull(i, Types.VARCHAR);
-			}
-			break;
-		case TIME:
-			if (!fieldValue.isNull()) {
-				String time = fieldValue.toString().replace(BACKSLASH, "");
-				if (databaseName.equals(MYSQL)) {
-					bstmnt.setString(i, time);
-				} else {
-					bstmnt.setTime(i, Time.valueOf(time));
-				}
-			} else {
-				bstmnt.setNull(i, Types.TIME);
-			}
-			break;
-		case BOOLEAN:
-			if (!fieldValue.isNull()) {
-				boolean flag = Boolean.parseBoolean(fieldValue.toString().replace(BACKSLASH, ""));
-				bstmnt.setBoolean(i, flag);
-			} else {
-				bstmnt.setNull(i, Types.BOOLEAN);
-			}
-			break;
-		default:
-			break;
-		}
-	}
-
-	/**
-	 * 
-	 * Method to extract JSON Value from the input request and set it to prepared
-	 * statement based on the database names
-	 * 
-	 * @param bstmnt
-	 * @param databaseName
-	 * @param i
-	 * @param arrayNode
-	 * @param fieldValue
-	 * @throws SQLException
-	 */
-	private void extractInClauseJson(PreparedStatement bstmnt, String databaseName, int i, ArrayNode arrayNode,
-			JsonNode fieldValue) throws SQLException {
-		if (databaseName.equals(POSTGRESQL)) {
-			PGobject jsonObject = new PGobject();
-			jsonObject.setType("json");
-			jsonObject.setValue(arrayNode.toString());
-			bstmnt.setObject(i, jsonObject);
-		} else if (databaseName.equals(ORACLE)) {
-			OracleJsonFactory factory = new OracleJsonFactory();
-			OracleJsonObject object = factory.createObject();
-			JSONObject jsonObject = new JSONObject(arrayNode.toString());
-			Iterator<String> keys = jsonObject.keys();
-			while (keys.hasNext()) {
-				String jsonKeys = keys.next();
-				object.put(jsonKeys, jsonObject.get(jsonKeys).toString());
-			}
-			bstmnt.setObject(i, object, OracleType.JSON);
-		} else {
-			bstmnt.setString(i, StringEscapeUtils.unescapeJava(fieldValue.toString().replace(BACKSLASH, "")));
-		}
 	}
 
 	/**
@@ -433,88 +243,6 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 	}
 
 	/**
-	 * Builds the Prepared Statement by taking the request.
-	 *
-	 * @param objdata   the is
-	 * @param dataTypes the data types
-	 * @param con       the con
-	 * @return the string builder
-	 * @throws IOException  Signals that an I/O exception has occurred.
-	 * @throws SQLException the SQL exception
-	 */
-	private StringBuilder buildQuery(ObjectData objdata, Map<String, String> dataTypes, Connection con)
-			throws IOException, SQLException {
-		StringBuilder query = new StringBuilder(
-				DatabaseConnectorConstants.SELECT_INITIAL + getContext().getObjectTypeId());
-		boolean inClause = getContext().getOperationProperties().getBooleanProperty("INClause", false);
-		if (inClause) {
-			this.buildFinalQueryForINClause(con, query, objdata);
-		} else {
-			this.buildFinalQuery(con, query, objdata, dataTypes);
-		}
-		return query;
-	}
-
-	/**
-	 * Builds the final query for IN clause.
-	 *
-	 * @param con     the con
-	 * @param query   the query
-	 * @param objdata the objdata
-	 * @throws IOException  Signals that an I/O exception has occurred.
-	 * @throws SQLException the SQL exception
-	 */
-	private void buildFinalQueryForINClause(Connection con, StringBuilder query, ObjectData objdata)
-			throws IOException, SQLException {
-		ObjectMapper mapper = new ObjectMapper().disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS);
-		try (InputStream is = objdata.getData();) {
-			JsonNode json = null;
-			if (is.available() == 0 || null == (json = mapper.readTree(is))) {
-				throw new ConnectorException("Please check the Input Request!!!");
-			}
-			// After filtering out the inputs (which are more than 1MB) we are loading the
-			// inputstream to memory here.
-			DatabaseMetaData md = con.getMetaData();
-			try (ResultSet resultSet = md.getColumns(null, null, getContext().getObjectTypeId(), null);) {
-				int keyCount = 0;
-				query.append(DatabaseConnectorConstants.WHERE);
-				while (resultSet.next()) {
-					String key = resultSet.getString(DatabaseConnectorConstants.COLUMN_NAME);
-					if (json.get(key) != null) {
-						keyCount++;
-						query.append(key).append(" IN (");
-						int arraySize = json.get(key) instanceof ArrayNode ? json.get(key).size() : 1;
-						for (int i = 0; i < arraySize; i++) {
-							query.append("?");
-							if (i < arraySize - 1) {
-								query.append(",");
-							}
-						}
-						query.append(")");
-						if (json.size() > 1 && keyCount < json.size()) {
-							query.append(" AND ");
-						}
-					}
-				}
-				if (keyCount != json.size()) {
-					throw new ConnectorException("Column name doesnot exist!!!");
-				}
-			}
-		}
-
-	}
-
-	/**
-	 * Adds the link element field values to the GROUPBY Clause of the query.
-	 *
-	 * @param query       the query
-	 * @param linkElement the link element
-	 */
-	private void addLinkElement(StringBuilder query, String linkElement) {
-		query.append(DatabaseConnectorConstants.GROUP_BY).append(linkElement);
-	}
-
-	/**
 	 * This method will process the result set and creates the Payload for the
 	 * Operation Response.
 	 *
@@ -557,75 +285,12 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 			}
 			logger.info("calling finishPartialResult ");
 			response.finishPartialResult(objdata);
-		} catch (SQLException e) {
-			logger.severe("SQLException in processResultSet: " + e.getMessage());
-			CustomResponseUtil.writeErrorResponse(e, objdata, response);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		} catch (Exception e) {
+			logger.severe("Exception in processResultSet: " + e.getMessage());
+			ResponseUtil.addExceptionFailure(response, objdata, e);
 		} finally {
 			IOUtil.closeQuietly(load);
 		}
-	}
-
-	/**
-	 * This Method will build the Sql query based on the request parameters.
-	 *
-	 * @param con       the con
-	 * @param query     the query
-	 * @param objdata   the objdata
-	 * @param dataTypes the data types
-	 * @throws IOException  Signals that an I/O exception has occurred.
-	 * @throws SQLException the SQL exception
-	 */
-	private void buildFinalQuery(Connection con, StringBuilder query, ObjectData objdata, Map<String, String> dataTypes)
-			throws IOException, SQLException {
-		ObjectMapper mapper = new ObjectMapper().disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS);
-		try (InputStream is = objdata.getData();) {
-			if (is.available() != 0) {
-				// After filtering out the inputs (which are more than 1MB) we are loading the
-				// inputstream to memory here.
-				JsonNode json = mapper.readTree(is);
-				if (json != null) {
-					query.append(DatabaseConnectorConstants.WHERE);
-					boolean and = false;
-					DatabaseMetaData md = con.getMetaData();
-					try (ResultSet resultSet = md.getColumns(null, null, getContext().getObjectTypeId(), null);) {
-						while (resultSet.next()) {
-							String key = resultSet.getString(DatabaseConnectorConstants.COLUMN_NAME);
-							JsonNode node = json.get(key);
-							if (node != null) {
-								this.checkforAnd(and, query);
-								query.append(key).append("=");
-								if (dataTypes.containsKey(key)) {
-									query.append("?");
-								}
-								and = true;
-							}
-						}
-					}
-				}
-
-				else {
-					throw new ConnectorException("Please check the Input Request!!!");
-				}
-
-			}
-		}
-
-	}
-
-	/**
-	 * This method will check whether the incoming request parameter is first one
-	 * and append the AND character to the query accordingly.
-	 *
-	 * @param and   the and
-	 * @param query the query
-	 */
-	private void checkforAnd(boolean and, StringBuilder query) {
-		if (and) {
-			query.append(" AND ");
-		}
-
 	}
 
 	/**

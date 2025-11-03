@@ -21,9 +21,7 @@ import com.boomi.connector.api.ObjectDefinitionRole;
 import com.boomi.connector.api.ObjectDefinitions;
 import com.boomi.connector.api.ObjectType;
 import com.boomi.connector.api.ObjectTypes;
-import com.boomi.connector.api.OperationType;
 import com.boomi.connector.databaseconnector.util.DatabaseConnectorConstants;
-import com.boomi.connector.databaseconnector.util.ProcedureMetaDataUtil;
 import com.boomi.connector.databaseconnector.util.SchemaBuilderUtil;
 import com.boomi.connector.util.BaseBrowser;
 import org.json.JSONObject;
@@ -59,13 +57,6 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 	 */
 	@Override
 	public ObjectDefinitions getObjectDefinitions(String objectTypeId, Collection<ObjectDefinitionRole> roles) {
-		String customOpsType = getContext().getCustomOperationType();
-		OperationType opsType = getContext().getOperationType();
-		String getType = (String) getContext().getOperationProperties().get(DatabaseConnectorConstants.GET_TYPE);
-		String updateType = (String) getContext().getOperationProperties().get(DatabaseConnectorConstants.TYPE);
-		String deleteType = (String) getContext().getOperationProperties().get(DatabaseConnectorConstants.DELETE_TYPE);
-		String insertType = (String) getContext().getOperationProperties().get(DatabaseConnectorConstants.INSERTION_TYPE);
-		boolean enableQuery = getContext().getOperationProperties().getBooleanProperty("enableQuery", false);
 		boolean isBatching = true;
 		ObjectDefinitions objdefs = new ObjectDefinitions();
 		DatabaseConnectorConnection conn = getConnection();
@@ -75,11 +66,6 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 				String jsonSchema = null;
 				switch (role) {
 				case OUTPUT:
-					if (DatabaseConnectorConstants.STOREDPROCEDUREWRITE.equals(customOpsType)) {
-						List<String> outParams = ProcedureMetaDataUtil.getOutputParams(con, objectTypeId);
-						jsonSchema = SchemaBuilderUtil.getProcedureSchema(con, objectTypeId, outParams);
-
-					} else if (DatabaseConnectorConstants.GET.equals(customOpsType)) {
 						if (getContext().getOperationProperties() != null
 								&& !getContext().getOperationProperties().isEmpty()) {
 							JSONObject jsonCookie = new JSONObject();
@@ -89,10 +75,6 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 							objdef.withCookie(jsonCookie.toString());
 						}
 						jsonSchema = SchemaBuilderUtil.getJsonSchema(con, objectTypeId, false, true, isBatching);
-
-					} else {
-						jsonSchema = SchemaBuilderUtil.getQueryJsonSchema("");
-					}
 					if (jsonSchema == null) {
 						objdefs = this.getUnstructuredSchema(objdef, objdefs);
 					} else {
@@ -102,23 +84,7 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 					break;
 
 				case INPUT:
-					if (DatabaseConnectorConstants.STOREDPROCEDUREWRITE.equals(customOpsType)) {
-						List<String> inParams = ProcedureMetaDataUtil.getInputParams(con, objectTypeId);
-						jsonSchema = SchemaBuilderUtil.getProcedureSchema(con, objectTypeId, inParams);
-					} else if (DatabaseConnectorConstants.DYNAMIC_UPDATE.equals(updateType)) {
-						jsonSchema = SchemaBuilderUtil.getQueryJsonSchema(updateType);
-					} else if (DatabaseConnectorConstants.DYNAMIC_DELETE.equals(deleteType)) {
-						jsonSchema = SchemaBuilderUtil.getQueryJsonSchema(deleteType);
-					} else if (DatabaseConnectorConstants.DYNAMIC_INSERT.equals(insertType)
-							|| DatabaseConnectorConstants.DYNAMIC_GET.equals(getType)
-							|| OperationType.UPSERT.equals(opsType)) {
 						jsonSchema = SchemaBuilderUtil.getJsonSchema(con, objectTypeId, false, false, false);
-					}
-
-					else {
-					
-						jsonSchema = SchemaBuilderUtil.getJsonSchema(con, objectTypeId, enableQuery, false, false);
-					}
 					if (jsonSchema != null) {
 						objdefs = this.getJsonStructure(jsonSchema, objdef, objdefs);
 					} else {
@@ -170,8 +136,8 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 	}
 
 	/**
-	 * This method will add the table names or the procedure names to the object
-	 * type list based on the operation selected.
+	 * This method will add the table names to the object
+	 * type list.
 	 *
 	 * @return the object types
 	 */
@@ -184,22 +150,6 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 		ResultSet resultSet = null;
 		try (Connection con = conn.getSoloConnection().connect(conn.getUrl(), conn.loadProperties());) {
 			DatabaseMetaData md = con.getMetaData();
-			String opsType = getContext().getCustomOperationType();
-			if (opsType != null && opsType.equals(DatabaseConnectorConstants.STOREDPROCEDUREWRITE)) {
-				resultSet = md.getProcedures(null, con.getSchema(), "%");
-				while (resultSet.next()) {
-					String procedureName = resultSet.getString(DatabaseConnectorConstants.PROCEDURE_NAME);
-					if (md.getDatabaseProductName().equals(DatabaseConnectorConstants.MSSQLSERVER)) {
-						ObjectType objtype = new ObjectType();
-						objtype.setId(procedureName.substring(0, procedureName.length() - 2));
-						objTypeList.add(objtype);
-					} else {
-						ObjectType objtype = new ObjectType();
-						objtype.setId(procedureName);
-						objTypeList.add(objtype);
-					}
-				}
-			} else {
 				String tableNames = getContext().getOperationProperties().getProperty("tableNames", null);
 				if (tableNames != null) {
 					ObjectType objType = this.validate(tableNames, con);
@@ -213,7 +163,6 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 						objTypeList.add(objtype);
 					}
 				}
-			}
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to get the table names from the database {0}", e.getMessage());
 		} finally {
