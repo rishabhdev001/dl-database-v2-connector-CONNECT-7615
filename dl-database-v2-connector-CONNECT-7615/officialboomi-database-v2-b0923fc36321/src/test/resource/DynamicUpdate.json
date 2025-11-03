@@ -1,0 +1,24 @@
+{
+	"requestBody": {
+		"Entries": [{
+				"SET": [{
+						"Key": "name",
+						"Value": "ABC"
+					},
+					{
+						"Key": "clob",
+						"Value": "Mangalore"
+					}
+				],
+				"WHERE": [{
+						"Key": "id",
+						"Value": 200,
+						"Operator": "<"
+					}
+
+				]
+			}
+
+		]
+	}
+}

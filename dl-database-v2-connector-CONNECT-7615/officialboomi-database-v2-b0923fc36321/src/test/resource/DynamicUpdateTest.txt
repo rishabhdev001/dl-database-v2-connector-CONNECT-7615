@@ -1,0 +1,5 @@
+{"SET": [{ "column": "name", "value": "XYZ" }, { "column": "clob", "value": "Mangalore" }], "WHERE": [{ "column": "id", "value": 191, "operator": "=" }, { "column": "laptime", "value": "07:09:09", "operator": "<" }]}
+{"SET": [{"column": "name", "value": "PQR"},{ "column": "clob", "value": "Mangalore" }], "WHERE": [{ "column": "id", "value": 173, "operator": "=" }]}
+{"SET": [{"column": "name", "value": "PQR"},{ "column": "clob", "value": "Mangalore" }], "WHERE": [{ "column": "id", "value": 173, "operator": "=" }]}
+{"SET": [{"column": "name", "value": "PQR"},{ "column": "clob", "value": "Mangalore" }], "WHERE": [{ "column": "id", "value": 173, "operator": "=" }]}
+{"SET": [{"column": "name", "value": "PQR"},{ "column": "clob", "value": "Mangalore" }], "WHERE": [{ "column": "id", "value": 173, "operator": "=" }]}

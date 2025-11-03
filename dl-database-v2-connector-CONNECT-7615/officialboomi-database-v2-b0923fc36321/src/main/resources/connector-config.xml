@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- © Copyright IBM Corp. 2023, 2024 -->
+<GenericConnector sdkApiVersion="2.8.0">
+  <connectorClassName>com.boomi.connector.databaseconnector.DatabaseConnectorConnector</connectorClassName>
+</GenericConnector>

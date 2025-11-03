@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!-- © Copyright IBM Corp. 2023, 2024 -->
+<GenericConnectorDescriptor
+	browsingType="any" requireConnectionForBrowse="true">
+
+	<field type="string" id="url" label="Connection URL">
+		<helpText>Refer to the JDBC vendor's documentation for the connection
+			URL syntax.
+		</helpText>
+	</field>
+	<field type="string" id="className" label="Class Name">
+		<helpText>Enter the fully-qualified Java class name of the JDBC
+			driver, which you can get from the JDBC vendor's documentation. For
+			example, sun.jdbc.odbc.JdbcOdbcDriver.
+		</helpText>
+	</field>
+	<field type="string" id="username" label="User Name">
+		<helpText>Enter the user name to log into the database.</helpText>
+	</field>
+	<field type="password" id="password" label="Password">
+		<helpText>Enter the password to log into the database.</helpText>
+	</field>
+	<field type="string" id="classpath" label="Classpath">
+		<helpText>Enter the path to the Jar file</helpText>
+	</field>
+
+	<field type="customproperties" id="CustomProperties"
+		label="Connection Properties">
+		<helpText>Enter any additional properties that need to be set on the
+			initial context.
+		</helpText>
+	</field>
+	<testConnection method="CUSTOM" />
+	<operation types="EXECUTE" customTypeId="GET"
+			   customTypeLabel="GET">
+		<field type="string" id="GetType" label="Get Operation Type"
+			   scope="both">
+			<helpText>Choose the Get Operation Type for Get operation</helpText>
+			<defaultValue>Dynamic Get</defaultValue>
+			<allowedValue label="Dynamic Get">
+				<value>Dynamic Get</value>
+			</allowedValue>
+		</field>
+		<field id="maxRows" type="integer" label="Max Rows" overrideable="true">
+			<helpText>Set the maximum number of rows to be returned from the
+				Database in a single request.
+			</helpText>
+		</field>
+		<field id="documentBatching" label="Document Batching" type="boolean" scope="browseOnly">
+			<helpText>The records retrieved from database are batched in the output.</helpText>
+			<defaultValue>true</defaultValue>
+		</field>
+		<field id="batchCount" type="integer" label="Batch Count">
+			<helpText>The number of records retrieved per output document for document batching.
+			</helpText>
+		</field>
+
+	</operation>
+	<dynamicProperty type="string" id="sqlQuery" label="SQL Query" />
+</GenericConnectorDescriptor>
