@@ -57,7 +57,7 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 		String linkElement = getContext().getOperationProperties().getProperty(DatabaseConnectorConstants.LINK_ELEMENT,
 				"");
 		Long maxFieldSize = getContext().getOperationProperties().getLongProperty("maxFieldSize");
-		try (Connection con = conn.getConnection()) {
+		try (Connection con = conn.getSoloConnection().connect(conn.getUrl(), conn.loadProperties())) {
 			logger.info("execute size limited update calling executeStatements " + " maxFieldSize " + maxFieldSize +" maxRows "+ maxRows);
 			this.executeStatements(con, request, response, maxRows, linkElement, maxFieldSize);
 		} catch (Exception e) {

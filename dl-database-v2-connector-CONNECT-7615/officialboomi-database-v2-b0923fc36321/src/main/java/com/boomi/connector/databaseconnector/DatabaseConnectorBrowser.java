@@ -60,7 +60,7 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 		boolean isBatching = true;
 		ObjectDefinitions objdefs = new ObjectDefinitions();
 		DatabaseConnectorConnection conn = getConnection();
-		try (Connection con = conn.getConnection()) {
+		try (Connection con = conn.getSoloConnection().connect(conn.getUrl(), conn.loadProperties())) {
 			for (ObjectDefinitionRole role : roles) {
 				ObjectDefinition objdef = new ObjectDefinition();
 				String jsonSchema = null;
@@ -148,7 +148,7 @@ public class DatabaseConnectorBrowser extends BaseBrowser implements ConnectionT
 		List<ObjectType> objTypeList = new ArrayList<>();
 		DatabaseConnectorConnection conn = getConnection();
 		ResultSet resultSet = null;
-		try (Connection con = conn.getConnection()) {
+		try (Connection con = conn.getSoloConnection().connect(conn.getUrl(), conn.loadProperties())) {
 			DatabaseMetaData md = con.getMetaData();
 				String tableNames = getContext().getOperationProperties().getProperty("tableNames", null);
 				if (tableNames != null) {

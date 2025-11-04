@@ -2,7 +2,9 @@
 // Copyright (c) 2020 Boomi, Inc.
 package com.boomi.connector.databaseconnector;
 
+import java.io.IOException;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
@@ -36,6 +38,9 @@ public class DatabaseConnectorConnection extends BaseConnection {
 	/** The url. */
 	private String url;
 
+	/** The classpath. */
+	private String classpath;
+
 	/** The custom property. */
 	private Map<String, String> customProperty;
 
@@ -54,9 +59,26 @@ public class DatabaseConnectorConnection extends BaseConnection {
 		this.username = getContext().getConnectionProperties().getProperty(DatabaseConnectorConstants.USERNAME,"");
 		this.password = getContext().getConnectionProperties().getProperty(DatabaseConnectorConstants.PASS,"");
 		this.url = getContext().getConnectionProperties().getProperty(DatabaseConnectorConstants.URL,"");
+		this.classpath = getContext().getConnectionProperties().getProperty(DatabaseConnectorConstants.CLASSPATH,"");
 		this.customProperty = getContext().getConnectionProperties().getCustomProperties("CustomProperties");
 	}
+	/**
+	 * Gets the class path.
+	 *
+	 * @return the class path
+	 */
+	public String getClassPath() {
+		return classpath;
+	}
 
+	/**
+	 * Sets the class name.
+	 *
+	 * @param classpath the new class path
+	 */
+	public void setClassPath(String classpath) {
+		this.classpath = classpath;
+	}
 	/**
 	 * Gets the class name.
 	 *
@@ -153,17 +175,37 @@ public class DatabaseConnectorConnection extends BaseConnection {
 	}
 
 	/**
-	 * Gets the connection.
+	 * Gets the solo connection.
 	 *
-	 * @return the connection
+	 * @return the solo connection
 	 */
-	public Connection getConnection() {
+	//String classpath = "/Users/mjain/Downloads/mysql-connector-java-3.1.14-bin.jar";
+	//String className = "com.mysql.cj.jdbc.Driver";
+	DynamicClassLoader loader = new DynamicClassLoader();
+	public Driver getSoloConnection() {
+
 		try {
-			Class.forName(className);
-			return DriverManager.getConnection(url, loadProperties());
+			// In order to allow the ability to invoke multiple database drivers at the same
+			// time, the DriverManager
+			// class needs to be initialized before Class.forName is called. Calling this
+			// particular method will invoke
+			// the DriverManager so it is class loaded before trying to instantiate drivers.
+
+			//DriverManager.getLoginTimeout();
+			//return (Driver) Class.forName(className).newInstance();
+			DriverManager.getLoginTimeout();
+			//return (Driver) Class.forName(className).newInstance();
+			//logger.info("running loader");
+			logger.info("class name " + className);
+			logger.info("pathOrJarFile " + classpath);
+			logger.info("loader " + loader);
+			Driver driver = (Driver) loader.createInstance(classpath, className);
+			logger.info("running loader " + driver);
+			return driver;
+
 		} catch (ClassNotFoundException e) {
 			throw new ConnectorException("Failed Loading the class");
-		} catch (SQLException e) {
+		} catch (IOException | ReflectiveOperationException e) {
 			throw new ConnectorException(e.getMessage());
 		}
 	}
@@ -175,7 +217,7 @@ public class DatabaseConnectorConnection extends BaseConnection {
 	 * @throws ConnectorException the connector exception
 	 */
 	public void test() {
-		try (Connection conn = getConnection();) {
+		try (Connection conn = getSoloConnection().connect(getUrl(), loadProperties());) {
 			logger.log(Level.FINE, "Connection established successfully");
 		} catch (SQLException e) {
 			throw new ConnectorException(e.getMessage());
