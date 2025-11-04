@@ -190,7 +190,7 @@ public class DatabaseConnectorConnection extends BaseConnection {
 			// class needs to be initialized before Class.forName is called. Calling this
 			// particular method will invoke
 			// the DriverManager so it is class loaded before trying to instantiate drivers.
-			
+
 			//DriverManager.getLoginTimeout();
 			//return (Driver) Class.forName(className).newInstance();
 			DriverManager.getLoginTimeout();

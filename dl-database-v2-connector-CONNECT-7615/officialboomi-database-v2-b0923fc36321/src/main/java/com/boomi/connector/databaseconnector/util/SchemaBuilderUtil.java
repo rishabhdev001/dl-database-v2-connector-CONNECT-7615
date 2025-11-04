@@ -9,19 +9,12 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import com.boomi.connector.databaseconnector.util.MetadataUtil;
 
 import com.boomi.connector.api.ConnectorException;
-import com.boomi.connector.databaseconnector.model.DeletePojo;
-import com.boomi.connector.databaseconnector.model.QueryResponse;
-import com.boomi.connector.databaseconnector.model.UpdatePojo;
 import com.boomi.util.json.JSONUtil;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.module.jsonSchema.JsonSchema;
-import com.fasterxml.jackson.module.jsonSchema.factories.SchemaFactoryWrapper;
 
 /**
  * This Util Class will Generate the JSON Schema by taking each column name from
@@ -32,8 +25,6 @@ import com.fasterxml.jackson.module.jsonSchema.factories.SchemaFactoryWrapper;
  *
  */
 public class SchemaBuilderUtil {
-
-	private static final String BACKSLASH_COLON = "\": \"";
 
 	private static final String BACKSLASH_OBJECT = "\": \"object\",";
 
@@ -165,93 +156,4 @@ public class SchemaBuilderUtil {
 			return new String[] { objectTypeId };
 		}
 	}
-
-	/**
-	 * This method will build the Json Schema for Stored Procedure based on the
-	 * Input Parameters and its DataTypes.
-	 *
-	 * @param con          the con
-	 * @param objectTypeId the object type id
-	 * @param inParams     the in params
-	 * @return the procedure schema
-	 */
-	public static String getProcedureSchema(Connection con, String objectTypeId, List<String> inParams) {
-		String jsonSchema = null;
-		StringBuilder sbSchema = new StringBuilder();
-		String json = null;
-		Map<String, Integer> dataTypes = null;
-
-		dataTypes = ProcedureMetaDataUtil.getProcedureMetadata(con, objectTypeId);
-		if (!inParams.isEmpty()) {
-			sbSchema.append("{").append(JSON_DRAFT4_DEFINITION).append(" \"").append(JSONUtil.SCHEMA_TYPE)
-					.append("\": \"object\",").append(" \"").append(JSONUtil.SCHEMA_PROPERTIES).append("\": {");
-			for (String param : inParams) {
-				sbSchema.append(BACKSLASH).append(param).append("\": {");
-				if (dataTypes.get(param).equals(12) || dataTypes.get(param).equals(92)
-						|| dataTypes.get(param).equals(91) || dataTypes.get(param).equals(-1)
-						|| dataTypes.get(param).equals(2005) || dataTypes.get(param).equals(-9)
-						|| dataTypes.get(param).equals(1111) || dataTypes.get(param).equals(123)) {
-					sbSchema.append(BACKSLASH).append(JSONUtil.SCHEMA_TYPE).append("\": \"").append(STRING).append(BACKSLASH);
-				} else if (dataTypes.get(param).equals(4) || dataTypes.get(param).equals(2)) {
-					sbSchema.append(BACKSLASH).append(JSONUtil.SCHEMA_TYPE).append("\": \"").append(INTEGER).append(BACKSLASH);
-				} else if (dataTypes.get(param).equals(16) || dataTypes.get(param).equals(-7)
-						|| dataTypes.get(param).equals(-6)) {
-					sbSchema.append(BACKSLASH).append(JSONUtil.SCHEMA_TYPE).append("\": \"").append(BOOLEAN).append(BACKSLASH);
-				}
-
-				sbSchema.append("},");
-			}
-
-			sbSchema.deleteCharAt(sbSchema.length() - 1);
-			sbSchema.append("}}");
-			json = sbSchema.toString();
-
-			JsonNode rootNode = null;
-
-			try {
-				rootNode = JSONUtil.getDefaultObjectMapper().readTree(json);
-				if (rootNode != null) {
-					jsonSchema = JSONUtil.prettyPrintJSON(rootNode);
-
-				}
-			} catch (Exception e) {
-				throw new ConnectorException(SCHEMA_BUILDER_EXCEPTION, e.getMessage());
-			}
-		}
-
-		return jsonSchema;
-
-	}
-
-	/**
-	 * This method will get the Json Schema for Dynamic Update, Stored procedure and
-	 * Dynamic Delete Response.
-	 *
-	 * @param opsType the ops type
-	 * @return json
-	 */
-	public static String getQueryJsonSchema(String opsType) {
-
-		ObjectMapper mapper = JSONUtil.getDefaultObjectMapper();
-		String json = null;
-		try {
-			SchemaFactoryWrapper wrapper = new SchemaFactoryWrapper();
-
-			if (opsType.equals(DYNAMIC_UPDATE)) {
-				mapper.acceptJsonFormatVisitor(UpdatePojo.class, wrapper);
-			} else if (opsType.equals(DYNAMIC_DELETE)) {
-				mapper.acceptJsonFormatVisitor(DeletePojo.class, wrapper);
-			} else {
-				mapper.acceptJsonFormatVisitor(QueryResponse.class, wrapper);
-			}
-
-			JsonSchema schema = wrapper.finalSchema();
-			json = JSONUtil.prettyPrintJSON(schema);
-		} catch (Exception e) {
-			throw new ConnectorException("Failed to build Schema", e);
-		}
-
-		return json;
-	}
-
 }

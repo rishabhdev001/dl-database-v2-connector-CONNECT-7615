@@ -34,7 +34,7 @@ public class BrowserTest extends ConnectorTestContext {
 		addConnectionProperty("username", props.getProperty("u"));
 		addConnectionProperty("password", props.getProperty("p"));
 		addConnectionProperty("url", props.getProperty("ip"));
-		addConnectionProperty("classpath", props.getProperty("cp"));
+		addConnectionProperty("classpath", "");
 		
 		addConnectionProperty("CustomProperties", customProperty);
 		setOperationType(OperationType.CREATE);
