@@ -12,8 +12,6 @@ import java.sql.SQLException;
 import java.util.logging.Logger;
 
 import com.boomi.connector.api.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import com.boomi.connector.databaseconnector.DatabaseConnectorConnection;
 import com.boomi.connector.databaseconnector.util.CustomPayloadUtil;
 import com.boomi.connector.databaseconnector.util.DatabaseConnectorConstants;
@@ -114,46 +112,24 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 	 * @param objdata  the objdata
 	 * @param response the response
 	 */
-	private void processResultSet(PreparedStatement pstmnt, ObjectData objdata, OperationResponse response) throws JsonProcessingException {
+	private void processResultSet(PreparedStatement pstmnt, ObjectData objdata, OperationResponse response) {
 		logger.info("inside processResultSet method");
 		CustomPayloadUtil load = null;
-		try (ResultSet rs = pstmnt.executeQuery();) {
-
+		try (ResultSet rs = pstmnt.executeQuery()) {
 			Long batchCount = getContext().getOperationProperties().getLongProperty(BATCH_COUNT);
-			if(batchCount == null){
+			if (batchCount == null) {
 				batchCount = DEFAULT_BATCH_COUNT;
 			}
-			while (rs.next()) {
-				if (batchCount == null || batchCount == 0) {
-					logger.info("CustomPayloadUtil has been called from processResultSet method without batchCount");
-					load = new CustomPayloadUtil(rs);
-				} else if (batchCount != null && batchCount>0) {
-					logger.info("CustomPayloadUtil has been called from processResultSet method with batchCount");
-					load = new CustomPayloadUtil(rs, batchCount , new ByteArrayOutputStream());
-				}
-				else {
-					throw new ConnectorException("Kindly check the profile details!!");
-				}
-				logger.info("calling addPartialResult ");
-				response.addPartialResult(objdata, OperationStatus.SUCCESS, SUCCESS_RESPONSE_CODE,
-						SUCCESS_RESPONSE_MESSAGE, load);
-				try {
-					if (rs.isClosed()) {
-						logger.info("Result set is closed already as complete data has been processed ");
-						break;
-					}
-				} catch (SQLException e) {
-					logger.severe("RS already closed: " + e.getMessage());
-					break;
-				}
-			}
-			logger.info("calling finishPartialResult ");
-			response.finishPartialResult(objdata);
+
+			// The CustomPayloadUtil will handle iterating through the result set and writing the CSV
+			load = new CustomPayloadUtil(rs, batchCount);
+
+			response.addResult(objdata, OperationStatus.SUCCESS, SUCCESS_RESPONSE_CODE,
+					SUCCESS_RESPONSE_MESSAGE, load);
+
 		} catch (Exception e) {
 			logger.severe("Exception in processResultSet: " + e.getMessage());
 			ResponseUtil.addExceptionFailure(response, objdata, e);
-		} finally {
-			IOUtil.closeQuietly(load);
 		}
 	}
 

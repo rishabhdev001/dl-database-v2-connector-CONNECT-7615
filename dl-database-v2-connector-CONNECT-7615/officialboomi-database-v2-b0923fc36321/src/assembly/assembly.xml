@@ -41,7 +41,6 @@
 				<exclude>junit:junit</exclude>
 				<exclude>org.hamcrest:hamcrest-core</exclude>
 				<exclude>com.boomi.util:boomi-json-util</exclude>
-			<exclude>com.opencsv</exclude>
 			</excludes>
 		</dependencySet>
 	</dependencySets>
