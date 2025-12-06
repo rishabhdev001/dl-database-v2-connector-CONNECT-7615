@@ -130,11 +130,11 @@ public class CustomPayloadUtil extends BasePayload {
 			logger.info("flush called from batchedPayload: ");
 			generator.flush();
 		} catch (SQLException e) {
-			logger.severe("SQLException in batchedPayload: " + e.getMessage());
-			throw new ConnectorException(e.getMessage());
+			logger.log(java.util.logging.Level.SEVERE, "SQLException in batchedPayload", e);
+			throw new ConnectorException(e);
 		} catch (Exception e) {
-			logger.severe("Exception coming in batchedPayload: " + e.getMessage());
-			throw new ConnectorException(e.getMessage());
+			logger.log(java.util.logging.Level.SEVERE, "Exception coming in batchedPayload", e);
+			throw new ConnectorException(e);
 		} finally {
 			generator.close();
 			logger.info("Total records processed in batchedPayload: " +grandTotalProcessed );
