@@ -95,7 +95,7 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 				}
 				this.processResultSet(st, objdata, response);
 			} catch (Exception e) {
-				logger.severe("Exception coming in executeStatements method"+ e.getMessage() );
+				logger.log(java.util.logging.Level.SEVERE, "Exception coming in executeStatements method", e);
 				ResponseUtil.addExceptionFailure(response, objdata, e);
 			} finally {
 				if (st != null) {
@@ -150,7 +150,7 @@ public class DynamicGetOperation extends SizeLimitedUpdateOperation {
 			logger.info("calling finishPartialResult ");
 			response.finishPartialResult(objdata);
 		} catch (Exception e) {
-			logger.severe("Exception in processResultSet: " + e.getMessage());
+			logger.log(java.util.logging.Level.SEVERE, "Exception in processResultSet", e);
 			ResponseUtil.addExceptionFailure(response, objdata, e);
 		} finally {
 			IOUtil.closeQuietly(load);
